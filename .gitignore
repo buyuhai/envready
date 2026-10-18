@@ -1,11 +1,14 @@
 # ---- 构建产物 ----
+# 注意：这里的可执行文件名必须以 / 开头锚定到仓库根。
+# 否则裸写的 envready 会同时匹配 cmd/envready/ 这类目录名，把源码一起忽略掉——
+# 这正是第一次 CI 失败的原因（cmd/ 压根没被提交，本地却因为文件还在磁盘上而能编译）。
 /bin/
 /build/
 /dist/
-envready
-envready.exe
-envready-gui
-envready-gui.exe
+/envready
+/envready.exe
+/envready-gui
+/envready-gui.exe
 *.test
 *.out
 
