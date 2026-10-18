@@ -33,6 +33,14 @@ New-Item -ItemType Directory -Force -Path $env:GOCACHE, $env:GOTMPDIR, $env:GOPA
 # proxy.golang.org 与 sum.golang.org 在部分网络下不可达，使用国内镜像
 $env:GOPROXY = 'https://goproxy.cn,direct'
 
+# 本地安装的 Go 工具（golangci-lint 等）放这里，并加入 PATH
+$env:GOBIN = Join-Path $toolsDir 'bin'
+$env:PATH = $env:GOBIN + ';' + $env:PATH
+
+# golangci-lint 默认把缓存写到用户目录，这里改到工具目录下（与 GOCACHE 同理）
+$env:GOLANGCI_LINT_CACHE = Join-Path $toolsDir 'golangci-cache'
+New-Item -ItemType Directory -Force -Path $env:GOBIN, $env:GOLANGCI_LINT_CACHE | Out-Null
+
 # 让 git 使用 openssl 后端（本机 schannel 不可用）
 $env:GIT_SSL_BACKEND = 'openssl'
 
