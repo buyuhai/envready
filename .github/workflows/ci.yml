@@ -43,12 +43,23 @@ jobs:
       - name: 静态检查（go vet）
         run: go vet ./...
 
+      - name: 安装 golangci-lint
+        shell: bash
+        # 为什么不用 marketplace 的 golangci-lint-action：它默认装 v1.x，而 v1.x 依赖的
+        # go/types 读不了 Go 1.27 的导出数据，会在三个平台上统一报
+        # "export data version 5 is greater than maximum supported version 2"。
+        # 这里固定 v2.15.0（与本地开发环境同一版本），本地与 CI 行为一致。
+        run: |
+          set -euo pipefail
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
       - name: 静态检查（golangci-lint，含 errcheck）
-        uses: golangci/golangci-lint-action@v6
-        with:
-          # TODO(ci): 首次推送验证后，将版本固定到具体 release，避免上游更新导致门禁漂移
-          version: latest
-          args: --timeout=5m
+        shell: bash
+        run: |
+          set -euo pipefail
+          golangci-lint version
+          golangci-lint run --timeout=5m
 
       - name: 单元测试
         run: go test ./...
