@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!--
+  本文件负责：前端界面的占位入口。
+
+  说明：S0 阶段只验证工程骨架，界面在 S3 实现。
+  技术选择：原生 HTML/CSS/JS，不引入 Node 与打包器——少一条依赖链，少一类失败。
+  接入 Wails 后，本目录会成为前端资源根目录，构建时被 embed 进主程序二进制。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EnvReady</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex; align-items: center; justify-content: center;
+        font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+        color: #334155; background: #f8fafc;
+      }
+      main { text-align: center; max-width: 32rem; padding: 2rem; }
+      h1 { font-size: 1.5rem; margin: 0 0 .75rem; }
+      p { line-height: 1.7; color: #64748b; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>EnvReady · 环境就绪</h1>
+      <p>界面尚未开始搭建（当前阶段：S0 工程骨架）。</p>
+      <p>这个文件在 S3 会被替换成真正的引导式界面。</p>
+    </main>
+  </body>
+</html>

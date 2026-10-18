@@ -1,0 +1,29 @@
+# ---- 构建产物 ----
+/bin/
+/build/
+/dist/
+envready
+envready.exe
+envready-gui
+envready-gui.exe
+*.test
+*.out
+
+# ---- 本地开发环境（工具链与模块缓存，不入库）----
+/_tools/
+
+# ---- 本地配置与临时文件 ----
+*.local
+.env
+*.log
+*.tmp
+
+# ---- 编辑器 ----
+/.vs/
+/.vscode/
+/.idea/
+
+# ---- 系统 ----
+Thumbs.db
+Desktop.ini
+.DS_Store
