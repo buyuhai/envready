@@ -1,0 +1,29 @@
+# 本文件负责：统一行尾与文本属性，避免"同一文件在不同机器上被改行尾"造成的假改动。
+#
+# 原则：
+#   - 源码与文档统一 LF（gofmt、CI 的 Linux 检查、diff 都更稳）；
+#   - Windows 专用脚本（.cmd / .ps1）用 CRLF，避免旧工具解析异常；
+#   - 二进制文件不做行尾转换。
+
+* text=auto
+
+*.go      text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.json    text eol=lf
+*.txt     text eol=lf
+go.mod    text eol=lf
+go.sum    text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+*.cmd     text eol=crlf
+*.bat     text eol=crlf
+*.ps1     text eol=crlf
+
+*.png     binary
+*.jpg     binary
+*.ico     binary
+*.exe     binary
+*.zip     binary
