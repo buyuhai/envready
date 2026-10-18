@@ -63,9 +63,9 @@ if (-not $commit) { $commit = 'none' }
 $buildDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 
 $ldflags = @(
-    "-X github.com/taozhengzhe/envready/internal/buildinfo.Version=$Version",
-    "-X github.com/taozhengzhe/envready/internal/buildinfo.Commit=$commit",
-    "-X github.com/taozhengzhe/envready/internal/buildinfo.BuildDate=$buildDate"
+    "-X github.com/buyuhai/envready/internal/buildinfo.Version=$Version",
+    "-X github.com/buyuhai/envready/internal/buildinfo.Commit=$commit",
+    "-X github.com/buyuhai/envready/internal/buildinfo.BuildDate=$buildDate"
 ) -join ' '
 
 New-Item -ItemType Directory -Force -Path (Join-Path $repoRoot 'bin') | Out-Null

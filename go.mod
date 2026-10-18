@@ -1,3 +1,3 @@
-module github.com/taozhengzhe/envready
+module github.com/buyuhai/envready
 
 go 1.27
