@@ -294,3 +294,94 @@ EnvReady 项目 —— 讨论思路收集
  13) 首期不提权、不写 HKLM、不写系统目录。
  14) 日志分两类：操作记录（面向学生，人话，"我做过什么"页面）与诊断日志（结构化、脱敏）。
  15) 交付顺序 S0→S6，先命令行后图形：命令行跑通才说明内核正确。
+
+
+================================================================
+议题四：S0 实作过程与修改思路（现象 → 判断 → 处理 → 教训）
+================================================================
+
+【为什么记这些】决定后续怎么做事的是中间那些判断，不是最后那几百行代码。
+每个坑都写清"当时怎么想的"，否则下次会犯同一个错，或者只剩一个不知道缘由的结论。
+
+1. 工具链不能写用户目录
+   现象：go env -w 报 cannot find the path；git config --global 报 Permission denied。
+   判断：不去申请外层权限，也不甩给用户"你自己配"——那会让别人 clone 后跑不起来。
+   处理：工具链全放 _tools\（仓库同级、仓库外），环境变量按会话级注入（dev-env.ps1）。
+   教训：开发环境同样可以做到零系统污染；clone 后的可复现性来自脚本，不来自机器状态。
+
+2. 构建缓存默认写用户目录，被拒
+   现象：go build 报 failed to initialize build cache at %LOCALAPPDATA%\go-build。
+   处理：GOCACHE、GOLANGCI_LINT_CACHE 一并指到 _tools。
+   教训：凡是工具默认往用户目录写的东西，都要有"改到项目内"的开关，否则受限环境必挂。
+
+3. TLS 中间人：能联网，但要自己递根证书
+   现象：curl 报 schannel SEC_E_NO_CREDENTIALS；git 默认后端同样失败；
+         改 -c http.sslBackend=openssl 后能连，但报 unable to get local issuer certificate。
+   判断：最省事是 -c http.sslVerify=false，但那是把校验关掉。产品原则里写着"绝不跳过证书校验"，
+         开发机先习惯了这条捷径，迟早会带进产品代码。
+   处理：把 Windows 根证书导出为 _tools\certs\win-roots.pem（92 张），用仓库级 http.sslCAInfo 指过去。
+   教训：遇到"关校验就能过"的诱惑，先问"这条捷径会不会变成团队习惯"。
+
+4. PowerShell 执行策略拦住脚本
+   处理：加 build.cmd / dev-shell.cmd 两个启动器，-ExecutionPolicy Bypass 仅当次生效，不改系统策略。
+
+5. .cmd 里写中文会把脚本打碎
+   现象：build.cmd 报 'ild.ps1，绕开' is not recognized——注释里的中文被按 ANSI 拆成了命令。
+   判断：cmd.exe 按 OEM/ANSI 代码页解析批处理，UTF-8 中文必然出错。不是"编码没设对"，
+         而是"批处理不该放非 ASCII"。
+   处理：.cmd 全文改 ASCII（注释用英文），中文全部移进 .ps1。
+   教训：前期 MinGW 项目的 .cmd 就写着 "ASCII only on purpose"——同一个坑第二次遇到，
+         说明它该进规范，而不是靠记性。
+
+6. .ps1 里中文乱码
+   原因：Windows PowerShell 5.1 在无 BOM 时按 ANSI 读脚本。
+   处理：所有 .ps1 存为 UTF-8 with BOM。
+   教训：文件编码要按平台约定，不能只按自己编辑器的默认值。
+
+7. 第一次 CI 失败：源码根本没提交上去（最值得记的一次）
+   现象：三平台都报 pattern ./cmd/...: lstat ./cmd/: no such file or directory。
+   定位：.gitignore 里写了裸的 envready / envready-gui（本意是忽略根目录构建产物），
+         而 gitignore 的裸模式匹配任意层级 → 把 cmd/envready/ 与 cmd/envready-gui/ 整个目录忽略了。
+   为什么本地没发现：文件还在磁盘上，go build 照样能编；只有"干净检出"才暴露。
+   处理：改成 /envready、/envready-gui 锚定根目录，并补交两个入口。
+   教训（最重要）：**"本地能编译"不等于"仓库是自洽的"**。
+         判断标准必须是"只含受控文件的全新检出能不能编过"。
+         当时明明打过 git ls-files，却没做"期望文件集 vs 实际文件集"的对账——以后建骨架必做这一步。
+
+8. golangci-lint 读不了 Go 1.27 的导出数据
+   现象：三平台统一报 export data version 5 is greater than maximum supported version 2。
+   定位：marketplace 的 golangci-lint-action 默认装 v1.x，其内嵌 go/types 偏旧。
+   处理：弃用 action，改 go install .../golangci-lint/v2/cmd/golangci-lint@v2.15.0，
+         并确立"本地与 CI 同一版本"的硬约定。
+   教训：门禁工具本身也是依赖，必须锁版本，否则门禁会随时间自己变。
+
+9. 拿不到 CI 日志
+   现象：GET /actions/jobs/{id}/logs 返回 302 到 Azure Blob；跟随重定向时带着 Authorization 头 → 401。
+   处理：先不跟随重定向拿到 Location，再"不带认证头"去取，拿到明文日志。
+   教训：排查 CI 失败，"先拿到日志"比"猜原因"快十倍；这条要进排错手册。
+
+10. 测试脚本自己也会错
+    现象：复测时 Set-Location 失败，gofmt -l . 在父目录执行，把 _tools 里整个 Go 源码树扫了一遍，刷出几万行。
+    处理：所有切换目录后立刻断言 (Get-Location).Path 等于预期路径。
+    教训：测试脚本本身也要有断言，否则它给出的"通过"不可信。
+
+【决策记录：S0 期间的几个取舍】
+- 不在 S0 引入 Wails：它带 cgo 与平台 GUI 依赖（Linux 需 gtk/webkit），会让 CI 第一天就装一堆系统库，
+  而 S1/S2 要验证的内核根本用不到界面。分层要求：界面出问题时，内核必须能用命令行独立复现。
+- 双入口（启动器 + 主程序）从第一天就分开：因为"运行中的程序无法替换自身"，
+  S4 的自更新依赖这个结构，晚拆会牵动大量代码。
+- internal 下每个包先只放 doc.go，写清"负责 / 不负责 / 关键约束"：先定边界再写实现，
+  避免后期出现反向依赖。
+- 不引入任何第三方依赖（连 YAML 解析都没加）：依赖越少，CI 越快，供应链越短。
+
+【门禁盲区与整改（复测阶段发现，已修）】
+- 盲区一：冒烟测试用 go run，链接器参数为空，版本永远显示 dev —— -X 写错也不会被发现。
+  整改：新增"断言版本注入生效（ldflags）"步骤，用 ldflags 构建真程序，断言版本号与提交号都出现。
+- 盲区二：本地与 CI 都依赖 golangci-lint 的"默认 linter 集合"，而大版本升级会改默认值。
+  整改：新增 .golangci.yml，default: none + 显式枚举（含 errcheck）。
+- 顺带：CI 缓存 golangci-lint 二进制（含 Windows 的 .exe 判断）；CI 里 module 路径改用 go list -m，不硬编码。
+
+【待办（S1 期间处理）】
+- core.quotepath：中文文件名被 git 转义成 \346\200...，解析 git ls-files 的脚本会踩坑。
+- build.ps1 里 module 路径仍硬编码 3 处（CI 已改用 go list -m，本地脚本照抄即可）。
+- main 分支保护需在 GitHub 网页开启（Settings → Branches），不属代码范围。
