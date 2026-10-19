@@ -43,7 +43,13 @@ jobs:
       - name: 静态检查（go vet）
         run: go vet ./...
 
-      - name: 安装 golangci-lint
+      - name: 缓存 golangci-lint 二进制
+        uses: actions/cache@v4
+        with:
+          path: "~/go/bin"
+          key: golangci-lint-${{ runner.os }}-v2.15.0
+
+      - name: 安装 golangci-lint（命中缓存则跳过）
         shell: bash
         # 为什么不用 marketplace 的 golangci-lint-action：它默认装 v1.x，而 v1.x 依赖的
         # go/types 读不了 Go 1.27 的导出数据，会在三个平台上统一报
@@ -51,7 +57,14 @@ jobs:
         # 这里固定 v2.15.0（与本地开发环境同一版本），本地与 CI 行为一致。
         run: |
           set -euo pipefail
-          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+          BIN="$(go env GOPATH)/bin/golangci-lint"
+          # Windows 上实际文件名是 golangci-lint.exe，-x 直接测会漏，这里补一次
+          if [ -x "${BIN}.exe" ]; then BIN="${BIN}.exe"; fi
+          if [ -x "$BIN" ]; then
+            echo "命中缓存：$("$BIN" version)"
+          else
+            go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+          fi
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
 
       - name: 静态检查（golangci-lint，含 errcheck）
@@ -81,3 +94,24 @@ jobs:
           echo "$out_gui"
           case "$out_launcher" in *EnvReady*) ;; *) echo "启动器 --version 输出异常"; exit 1 ;; esac
           case "$out_gui" in *EnvReady*) ;; *) echo "主程序 --version 输出异常"; exit 1 ;; esac
+
+      - name: 断言版本注入生效（ldflags）
+        shell: bash
+        # 上一步用 go run，链接器参数是空的，只会输出 dev/none —— 也就是说
+        # -X 注入一旦写错（例如改 module path 后漏改），整个流程仍然会绿。
+        # 这一步专门验证注入：用 ldflags 构建并跑真程序，断言版本号与提交号都出现了。
+        run: |
+          set -euo pipefail
+          MODULE="$(go list -m)"
+          VER="v0.0.0-ci"
+          COMMIT="$(git rev-parse --short HEAD)"
+          OUT="$(go run -ldflags "-X $MODULE/internal/buildinfo.Version=$VER -X $MODULE/internal/buildinfo.Commit=$COMMIT" ./cmd/envready --version)"
+          echo "$OUT"
+          case "$OUT" in
+            *"$VER"*) ;;
+            *) echo "::error::版本号未被注入，仍为默认值"; exit 1 ;;
+          esac
+          case "$OUT" in
+            *"$COMMIT"*) ;;
+            *) echo "::error::提交号未被注入"; exit 1 ;;
+          esac
