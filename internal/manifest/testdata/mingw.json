@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "key": "mingw",
+  "name": "C / C++ 编译器（MinGW-w64）",
+  "official": {
+    "page": "https://www.mingw-w64.org/",
+    "distribution": "winlibs（官方推荐的构建分发）",
+    "mirror_policy": "直取官方与官方镜像，不由本项目分发"
+  },
+  "license": "GPL / LGPL / MIT（各子项目不同）",
+  "env": {
+    "home_var": "",
+    "path": { "dirs": ["bin"], "position": "prepend" }
+  },
+  "requires": [],
+  "conflicts_with": [],
+  "recommended": "14.2.0",
+  "versions": [
+    {
+      "version": "14.2.0",
+      "label": "14.2.0（推荐）",
+      "released_at": "2024-08-01",
+      "platforms": {
+        "windows-amd64": {
+          "install_kind": "archive",
+          "file": "winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64ucrt-12.0.0-r2.zip",
+          "size": 112000000,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "headers": null,
+          "mirrors": [
+            "https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0-12.0.0-ucrt-r2/"
+          ],
+          "archive": { "format": "zip", "strip_root": false }
+        },
+        "windows-arm64": {
+          "install_kind": "archive",
+          "file": "winlibs-aarch64-posix-seh-gcc-14.2.0-mingw-w64ucrt-12.0.0-r2.zip",
+          "size": 108000000,
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "headers": null,
+          "mirrors": [
+            "https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0-12.0.0-ucrt-r2/"
+          ],
+          "archive": { "format": "zip", "strip_root": false }
+        }
+      },
+      "post_notes": ["第一次编译前请重新打开命令行窗口，旧窗口看不到新配置。"],
+      "verify": {
+        "command": "gcc",
+        "args": ["--version"],
+        "expect_exit": 0,
+        "parse": "gcc \\(.*\\) (\\d+\\.\\d+\\.\\d+)"
+      }
+    }
+  ],
+  "versions_all_url": "",
+  "notes_for_user": "这是最常用的 C 语言编译器。装好后可以用 VS Code 写代码并直接编译运行。"
+}

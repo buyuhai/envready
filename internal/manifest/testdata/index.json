@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "updated_at": "2026-10-19T09:00:00Z",
+  "categories": [
+    { "key": "cpp", "name": "C / C++", "order": 1, "intro": "写 C 语言程序需要的编译器" },
+    { "key": "python", "name": "Python", "order": 2, "intro": "最常用的入门语言" }
+  ],
+  "components": [
+    {
+      "key": "mingw",
+      "name": "C / C++ 编译器（MinGW-w64）",
+      "category": "cpp",
+      "aliases": ["gcc", "g++", "编译器", "C语言"],
+      "summary": "装完即可编译并运行你的第一个 C 程序",
+      "manifest": "components/mingw.json",
+      "manifest_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "supported": true
+    },
+    {
+      "key": "python",
+      "name": "Python",
+      "category": "python",
+      "aliases": ["py", "蛇语言"],
+      "summary": "最常用的入门语言",
+      "manifest": "components/python.json"
+    }
+  ]
+}
