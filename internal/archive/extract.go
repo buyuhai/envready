@@ -142,7 +142,7 @@ func extractTarFile(ctx context.Context, src, dst string, opts Options, gzipped 
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return fmt.Errorf("创建目录 %s 失败: %w", rel, err)
 			}
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return fmt.Errorf("创建父目录失败: %w", err)
 			}

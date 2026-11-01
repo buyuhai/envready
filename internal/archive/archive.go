@@ -201,7 +201,7 @@ func commonRoot(names []string, enabled bool) string {
 			continue
 		}
 		cleaned := path.Clean(unified)
-		first := cleaned
+		var first string
 		if i := strings.IndexByte(cleaned, '/'); i >= 0 {
 			first = cleaned[:i]
 		} else {
