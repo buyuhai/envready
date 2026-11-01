@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "key": "python",
+  "name": "Python（嵌入式发行版）",
+  "official": {
+    "page": "https://www.python.org/downloads/windows/",
+    "distribution": "python.org 官方 embeddable 包",
+    "mirror_policy": "直取官方站点，不由本项目分发"
+  },
+  "license": "PSF License",
+  "env": {
+    "home_var": "",
+    "path": {
+      "dirs": [],
+      "position": "prepend"
+    }
+  },
+  "requires": [],
+  "conflicts_with": [],
+  "recommended": "3.12.4",
+  "versions": [
+    {
+      "version": "3.12.4",
+      "label": "3.12.4（S1 端到端验证用）",
+      "released_at": "2024-06-06",
+      "platforms": {
+        "windows-amd64": {
+          "install_kind": "archive",
+          "file": "python-3.12.4-embed-amd64.zip",
+          "size": 11065736,
+          "sha256": "15fea3c9367653a85086fe37216b4d1a1c78688fa5e1587e1db0b0f658856564",
+          "headers": null,
+          "mirrors": [
+            "https://www.python.org/ftp/python/3.12.4/"
+          ],
+          "archive": {
+            "format": "zip",
+            "strip_root": false
+          }
+        }
+      },
+      "post_notes": [
+        "嵌入式包不含 pip，仅用于 S1 链路验证。"
+      ],
+      "verify": {
+        "command": "python",
+        "args": [
+          "--version"
+        ],
+        "expect_exit": 0,
+        "parse": "Python (\\d+\\.\\d+\\.\\d+)"
+      }
+    }
+  ],
+  "versions_all_url": "",
+  "notes_for_user": "S1 端到端验证样本：从 python.org 官方地址下载并校验。"
+}
