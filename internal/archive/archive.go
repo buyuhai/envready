@@ -196,16 +196,26 @@ func commonRoot(names []string, enabled bool) string {
 	}
 	root := ""
 	for _, name := range names {
+		// 目录条目（如 "mingw64/"）与普通文件要区别对待：
+		// 真实的 MinGW 包里第一条就是 "mingw64/"，若把它当成"顶层文件"，
+		// 就会误判为"没有唯一顶层目录"，从而永远不剥——这个 bug 只有真包才暴露。
+		isDirEntry := strings.HasSuffix(name, "/") || strings.HasSuffix(name, `\`)
+
 		unified := strings.TrimSuffix(strings.ReplaceAll(name, `\`, "/"), "/")
 		if unified == "" {
 			continue
 		}
 		cleaned := path.Clean(unified)
+
 		var first string
-		if i := strings.IndexByte(cleaned, '/'); i >= 0 {
+		switch i := strings.IndexByte(cleaned, '/'); {
+		case i >= 0:
 			first = cleaned[:i]
-		} else {
-			// 顶层就有文件：不存在"共享的单一目录"，不能剥
+		case isDirEntry:
+			// 顶层目录条目就是候选根本身
+			first = cleaned
+		default:
+			// 顶层就是一个文件：不存在"共享的单一目录"，不能剥
 			return ""
 		}
 		if root == "" {

@@ -385,3 +385,42 @@ EnvReady 项目 —— 讨论思路收集
 - core.quotepath：中文文件名被 git 转义成 \346\200...，解析 git ls-files 的脚本会踩坑。
 - build.ps1 里 module 路径仍硬编码 3 处（CI 已改用 go list -m，本地脚本照抄即可）。
 - main 分支保护需在 GitHub 网页开启（Settings → Branches），不属代码范围。
+
+
+================================================================
+议题五：S1 验收实测（真实官方包，2026-11-01）
+================================================================
+
+【做了什么】用真实官方包跑完整链路：清单 → 多镜像 → 下载 → 校验 → 解压。
+
+1) Python embeddable（python.org 官方）
+   10,565,736 字节 / SHA-256 15fea3c9…5656 / 1.7 秒 / 解压 35 个文件
+2) MinGW-w64（winlibs GCC 16.2.0，GitHub Release）
+   276,414,382 字节 / 上游自带 .sha256 旁注 = 3c693050…b6a1 / 21~27 秒 / 11,874 个文件
+   strip_root 生效后结构为 bin/ include/ lib/ libexec/ x86_64-w64-mingw32/ …
+   gcc --version 输出："gcc.exe (MinGW-W64 x86_64-ucrt-posix-seh, built by Brecht Sanders, r3) 16.2.0"
+
+【真实包抓到的 bug（单元测试没抓到）】
+现象：解压后顶层仍是 mingw64/，strip_root 没生效。
+原因：winlibs 的 zip 第一条是"目录条目" mingw64/。原来的 commonRoot 把"没有斜杠的条目"
+     一律当成"顶层文件"，于是判定"没有唯一顶层目录"，直接不剥。
+修法：区分目录条目（名字以 / 结尾）与顶层文件，前者视为候选根本身；并补回归用例。
+教训：夹具要包含真实包的结构特征（目录条目），否则测的是理想情况。
+     凡是"按文件名推断结构"的逻辑，都该拿一个真包过一遍再算完成。
+
+【更重要的发现：MinGW 不能装在含空格的路径下】
+实测：MinGW 解压到 D:\work place\_tools\e2e\mingw2（含空格）后：
+  - gcc --version             正常（所以"自检"会通过，看不出问题）
+  - gcc -c 单文件编译         正常
+  - gcc -o 链接               失败：ld.exe 报 cannot find D:/work（把未加引号的路径按空格切开）
+  - gcc -print-search-dirs    印证：内部路径 D:/work place/... 没有引号保护
+
+对我们的直接影响：
+  默认 ENV_ROOT 是 %LOCALAPPDATA%\EnvReady\envs，而 %LOCALAPPDATA% 含用户名。
+  如果学生电脑的用户名带空格（"Zhang San" 很常见），默认路径就带空格，
+  MinGW 装完能过自检却编译不了——这是"装成功了但用不了"的最坏情况，比安装失败更伤新生。
+
+由此新增两条待办（S2 处理）：
+1) ENV_ROOT 含空格时：安装前就明确告知并提供无空格备选路径，而不是等用户自己发现；
+2) 组件自检不能只跑 gcc --version，必须真的编译并运行一个最小程序
+   （前期 MinGW 脚本里的"实测自检"正是这个思路，现在有实证了）。

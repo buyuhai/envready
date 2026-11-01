@@ -227,6 +227,47 @@ func TestExtractRejectsSymlink(t *testing.T) {
 	}
 }
 
+// TestStripRootWithDirEntry 真实包（如 winlibs）第一条是目录条目 "mingw64/"，
+// 这种"顶层目录条目 + 其下文件"的组合必须能正确剥掉顶层目录。
+func TestStripRootWithDirEntry(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "pkg.zip")
+
+	f, err := os.Create(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	// 先写一条目录条目，再写其中的文件——与真实 zip 的结构一致
+	if _, err := zw.Create("mingw64/"); err != nil {
+		t.Fatal(err)
+	}
+	w, err := zw.Create("mingw64/bin/gcc.exe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("gcc")); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	dst := filepath.Join(dir, "out")
+	if err := Extract(context.Background(), src, dst, Options{StripRoot: true}); err != nil {
+		t.Fatalf("解压失败: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, "bin", "gcc.exe")); err != nil {
+		t.Errorf("剥掉顶层目录后应为 bin/gcc.exe: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dst, "mingw64")); !os.IsNotExist(err) {
+		t.Error("顶层目录 mingw64 不应保留")
+	}
+}
+
 // TestCommonRoot 只有"所有条目共享同一顶层目录"时才返回该目录。
 func TestCommonRoot(t *testing.T) {
 	cases := []struct {
@@ -235,6 +276,7 @@ func TestCommonRoot(t *testing.T) {
 		want  string
 	}{
 		{"共享根", []string{"a/bin/x", "a/README"}, "a"},
+		{"共享根（含顶层目录条目）", []string{"mingw64/", "mingw64/bin/gcc.exe"}, "mingw64"},
 		{"顶层有文件", []string{"a/bin/x", "README"}, ""},
 		{"两个根", []string{"a/x", "b/y"}, ""},
 		{"关闭时恒为空", []string{"a/bin/x", "a/README"}, ""},
