@@ -113,6 +113,16 @@ type Verify struct {
 	Parse string `json:"parse"`
 }
 
+// Requirements 记录组件对运行环境的要求。
+//
+// 数据驱动：不在代码里写死"MinGW 怕空格"，而是由清单声明。
+// 依据是 S1 验收的实测——winlibs 的 gcc 在含空格路径下 gcc --version 正常，
+// 但链接时 ld.exe 会把 "D:/work place" 按空格切成两段，报 cannot find D:/work。
+type Requirements struct {
+	// SpaceFreePath 为 true 表示安装路径里不能有空格，否则组件无法正常工作。
+	SpaceFreePath bool `json:"space_free_path"`
+}
+
 // Platform 是"某个版本在某个平台/架构上的具体分发"。
 type Platform struct {
 	// InstallKind 决定走哪条安装分支。
@@ -162,6 +172,8 @@ type Component struct {
 	License string `json:"license"`
 	// Env 是安装后要写的环境变量。
 	Env EnvSpec `json:"env"`
+	// Requirements 是组件对运行环境的要求（例如"路径不能有空格"）。
+	Requirements Requirements `json:"requirements"`
 	// Requires 是硬依赖的组件 key（安装前会检查）。
 	Requires []string `json:"requires"`
 	// ConflictsWith 是互斥的组件 key。

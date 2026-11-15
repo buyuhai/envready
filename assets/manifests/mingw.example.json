@@ -55,5 +55,8 @@
     }
   ],
   "versions_all_url": "",
-  "notes_for_user": "这是最常用的 C 语言编译器。装好后可以在 VS Code 里写代码并直接编译运行。"
+  "notes_for_user": "这是最常用的 C 语言编译器。装好后可以在 VS Code 里写代码并直接编译运行。",
+  "requirements": {
+    "space_free_path": true
+  }
 }
