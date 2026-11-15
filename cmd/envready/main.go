@@ -86,6 +86,10 @@ func runInstall(args []string) int {
 	quiet := fs.Bool("quiet", false, "不显示下载进度")
 
 	if err := fs.Parse(reorderArgs(args)); err != nil {
+		// -h / --help 是正常请求，不是用法错误：应该退出 0 而不是 2
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 	if fs.NArg() < 1 {
@@ -196,6 +200,10 @@ func runFetch(args []string) int {
 	quiet := fs.Bool("quiet", false, "不显示下载进度")
 
 	if err := fs.Parse(reorderArgs(args)); err != nil {
+		// -h / --help 是正常请求，不是用法错误：应该退出 0 而不是 2
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 	if fs.NArg() < 1 {

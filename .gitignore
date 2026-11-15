@@ -30,3 +30,12 @@
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# ---- Wails（S3 接入界面后必然生成，先忽略以免误提交）----
+/frontend/node_modules/
+/frontend/wailsjs/
+/frontend/build/
+/frontend/dist/
+
+# ---- Windows 资源目标文件（由 rsrc 等工具生成）----
+*.syso

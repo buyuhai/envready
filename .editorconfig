@@ -1,0 +1,34 @@
+# 本文件负责：统一不同编辑器与操作系统的缩进/换行，避免无意义的整文件 diff。
+#
+# 与 .gitattributes 的分工：
+#   - .gitattributes 管"提交进仓库时用什么行尾"（强制，不受编辑器影响）；
+#   - .editorconfig 管"本地打开文件时编辑器怎么显示与保存"（体验层）。
+#
+# 两者规则保持一致，否则会出现"编辑器保存后立刻产生 diff"的怪现象。
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = tab
+indent_size = 4
+
+[*.{md,markdown,yml,yaml,json,txt}]
+indent_style = space
+indent_size = 2
+
+# Windows 脚本必须是 CRLF，否则旧式 cmd.exe 解析可能出问题
+[*.{cmd,bat,ps1}]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+[go.mod]
+indent_style = tab
+indent_size = 4
+
+[Makefile]
+indent_style = tab

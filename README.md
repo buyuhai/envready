@@ -2,20 +2,32 @@
 
 > 一键之后，环境就绪。
 
-面向**零基础学生**的桌面程序：打开、按界面提示点几下，自动从**官方渠道**装好编程环境、
+面向**零基础学生**（大一新生）的桌面程序：打开、按提示点几下，自动从**官方渠道**装好编程环境、
 配好环境变量、跑一遍自检，并用自然语言告诉他"刚才做了什么、装在哪、下一步干什么"。
 
-- **定位**：帮第一次写代码的人跨过"配环境"这道门槛，而不是做一个包管理器。
-- **边界**：不托管任何安装包；所有资源直取官方渠道，本程序本体开源托管在这里。
+- **定位**：帮第一次写代码的人跨过"配环境"这道门槛。
+- **平台**：Windows 优先；macOS / Linux 的环境变量写入已实现，安装流程待真机验证。
+
+---
+
+## 它是什么，不是什么
+
+**是**：一个"替你去官网把东西取回来、校验、装好并配好"的引导程序。
+
+**不是**：
+
+- 不是包管理器——不维护自己的软件源，只做官方渠道的搬运与校验；
+- 不重新分发任何安装包——程序本体开源托管，资源一律直取官方；
+- 不写系统目录、不提权——只碰用户级位置（`HKCU`、用户 home）；
+- 不假装"进度条走完就等于装好"——每次安装都会真的跑一次自检。
 
 ---
 
 ## 当前阶段
 
 **S2（安装与环境变量）已完成**：`envready install` 一条命令走完
-「清单 → 下载 → 校验 → 原子落盘 → 自检 → 写环境变量」，自检含**真编译并运行最小程序**的冒烟验证。
-已用真实官方包验证安装 Python 3.12.4（1.7 秒，自检真跑出 3.12.4）。
-下一步是 S3（图形客户端）。
+「清单 → 下载 → 校验 → 原子落盘 → 自检（含真编译冒烟）→ 写环境变量」。
+已用真实官方包验证安装 Python 3.12.4（1.7 秒，自检真跑出 `3.12.4`）。下一步是 S3（图形客户端）。
 
 当前版本 **v0.3.0**，变更见 [CHANGELOG.md](CHANGELOG.md)。
 
@@ -33,31 +45,66 @@
 
 ---
 
+## 快速开始
+
+构建只需要 Go 1.27+；**用户的机器上不需要 Go**（产物是单文件原生可执行程序）。
+
+```powershell
+# 可选：打开已配置好的开发窗口（仓库同级有 _tools\go 时最省事）
+scripts\dev-shell.cmd
+
+# 构建（注入版本号、提交号、构建时间）
+scripts\build.cmd v0.3.0
+
+# 只下载并校验
+bin\envready.exe fetch mingw --manifest assets\manifests\mingw.example.json --extract-to .\out
+
+# 完整安装：下载 → 校验 → 解压 → 自检 → 写环境变量
+bin\envready.exe install python --manifest assets\manifests\python-embed.example.json
+```
+
+`install` 的常用参数：
+
+| 参数 | 作用 |
+| --- | --- |
+| `--env-root <目录>` | 指定环境根目录（默认在程序数据目录下） |
+| `--dest <目录>` | 安装包缓存目录 |
+| `--backup <目录>` | 环境变量备份目录 |
+| `--no-env` | 只安装，不写环境变量 |
+| `--force` | 同版本已存在时覆盖重装 |
+
+一次成功安装的输出：
+
+```
+已安装：python 3.12.4
+位置：C:\Users\you\AppData\Local\EnvReady\envs\python\3.12.4
+自检：通过（版本 3.12.4）
+环境变量：已更新（备份 …\env-backup\env-python-20261115-120000.json）
+接下来：
+  - 嵌入式包不含 pip，仅用于链路验证。
+```
+
+> **MinGW 不能装在含空格的路径下**（其链接器不会给内部路径加引号）。
+> 程序会在安装前拒绝，并给出建议路径与可直接复制的重试命令。
+
+---
+
 ## 怎么构建
 
-需要 Go 1.27 或更高。本项目不使用 CGO，也不引入前端打包器（界面用原生 HTML/CSS/JS）。
-
 ```bash
-# 一次编译出两个可执行文件：启动器与主程序
-go build -o bin/ ./cmd/...
+# 手动构建（等价于 scripts\build.cmd，但不会注入版本信息）
+go build -trimpath -o bin/ ./cmd/...
 
-# 看的版本信息（含构建时注入的版本、提交号、构建时间）
-go run ./cmd/envready --version
-go run ./cmd/envready-gui --version
-
-# 质量门禁（与 CI 一致）
-gofmt -l .
+# 质量门禁（与 CI 完全一致，提交前本地跑一遍）
+gofmt -l .                    # 应无输出
 go vet ./...
+golangci-lint run --timeout=5m
 go test ./...
 ```
 
-国内网络若拉不到模块，可先设置：
+国内网络拉不到模块时可先设置：`$env:GOPROXY = 'https://goproxy.cn,direct'`。
 
-```powershell
-$env:GOPROXY = 'https://goproxy.cn,direct'
-```
-
-本仓库的开发环境辅助脚本见 [scripts/dev-env.ps1](scripts/dev-env.ps1)（只影响当前会话，不修改系统环境）。
+本地环境脚本见 [scripts/dev-env.ps1](scripts/dev-env.ps1)（只影响当前会话，不修改系统环境）。
 
 ---
 
@@ -65,17 +112,50 @@ $env:GOPROXY = 'https://goproxy.cn,direct'
 
 | 路径 | 作用 |
 | --- | --- |
-| `cmd/envready` | **启动器**入口：读指针、拉起对应版本的主程序、必要时回退（体积极小） |
-| `cmd/envready-gui` | **主程序**入口：真正的应用（界面层后续接入） |
-| `internal/*` | 按职责分包，每个包的 `doc.go` 写明"负责什么、不负责什么" |
-| `frontend/` | 界面资源（当前为占位） |
-| `assets/` | 图标等静态资源 |
-| `tools/` | 资源清单的抓取/巡检/生成脚本（不参与主程序编译） |
+| `cmd/envready` | **启动器**入口：读指针、拉起对应版本主程序、必要时回退（S4 实现） |
+| `cmd/envready-gui` | **主程序**入口：真正的应用（S3 接入界面） |
+| `internal/` | 按职责分包，见下表 |
+| `frontend/` | 界面资源（S3） |
+| `assets/manifests/` | 示例清单——可直接跑通的真实示例 |
+| `assets/icons/` | 程序图标（S3） |
+| `tools/` | 清单抓取 / 巡检 / 生成脚本（S5） |
 | `设计文档/` | 15 份设计文档，是实现的依据 |
-| `scripts/` | 本地开发辅助脚本 |
+| `思路收集.txt` | 决策与踩坑记录，含每次实测的结论 |
+| `scripts/` | 本地开发脚本 |
 
-模块依赖方向是单向的：`ui → app → {update, install, detect, manifest} → {download, archive, envvar, paths, component, logging}`。
+`internal/` 各包（✅ 已实现 / ⏳ 未实现）：
+
+| 包 | 职责 |
+| --- | --- |
+| `paths` ✅ | 三平台目录推导；APP_ROOT（可更新）与 ENV_ROOT（用户资产）严格分离 |
+| `component` ✅ | 组件 / 版本 / 平台数据模型与字段自洽校验 |
+| `manifest` ✅ | 清单解析与 schema 版本闸门 |
+| `download` ✅ | 多镜像测速、断点续传、分层超时、边下边算校验和 |
+| `archive` ✅ | 文件头识别与安全解压（拒绝路径穿越与符号链接） |
+| `install` ✅ | 安装引擎：布局、原子落盘、安装记录、自检与冒烟、空格策略 |
+| `envvar` ✅ | 环境变量写入与回滚（Windows 注册表 / Unix rc 幂等块） |
+| `app` ✅ | 编排层：`fetch` / `install` 的单一入口 |
+| `buildinfo` ✅ | 构建期注入的版本信息 |
+| `logging` ⏳ | 操作记录与诊断日志 |
+| `detect` ⏳ | 检测本机已有环境 |
+| `ui` ⏳ | 界面绑定层 |
+| `i18n` ⏳ | 文案 |
+| `update` ⏳ | 自更新（S4） |
+
+依赖方向是单向的：
+`ui → app → {update, install, detect, manifest} → {download, archive, envvar, paths, component, logging}`。
 反向依赖视为设计事故（见 [设计文档/01-工程结构与代码规范.md](设计文档/01-工程结构与代码规范.md)）。
+
+---
+
+## 已知限制
+
+- 安装方式只支持 `install_kind=archive`；`installer / portable / npm` 尚未实现
+- 还没有 `uninstall`
+- 界面尚未接入（S3）
+- Windows 已完整验证；macOS / Linux 只实现了环境变量写入，安装流程未在真机跑通
+- **MinGW 不能装在含空格的路径下**（`ld.exe` 不给内部路径加引号）
+- 清单尚未签名（首期）：校验和来自清单自身，信任根链条见 [设计文档/11-安全与信任模型.md](设计文档/11-安全与信任模型.md)
 
 ---
 
@@ -87,6 +167,20 @@ $env:GOPROXY = 'https://goproxy.cn,direct'
    218 条内置直链逐条验证、26 个版本抓取器全部真跑，定位 35 项缺陷；
 2. **前期自研的 MinGW-w64 一键安装脚本**——其中"备份—去重—类型保持—广播—回读校验—可还原"
    这一套做法已被验证有效，本项目继承之。
+
+---
+
+## 怎么参与
+
+提交前请本地跑完上面四条门禁。CI 会在 Ubuntu / macOS / Windows 三个平台各跑一遍，
+其中有两道门禁值得特别说明：
+
+- **版本注入断言**：用 `-ldflags` 构建真程序并断言版本号与提交号出现——
+  否则 `-X` 写错时 CI 会假绿（早期就踩过）。
+- **注册表集成测试跳过即失败**：仅 Windows 执行；出现 `SKIP` 直接判失败——
+  因为 `go test` 里 skip 和 pass 都显示 `ok`，跳过等于没验证。
+
+提交信息请写清"为什么"，而不只是"改了什么"。
 
 ---
 

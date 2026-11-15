@@ -17,6 +17,8 @@ go.mod    text eol=lf
 go.sum    text eol=lf
 .gitignore text eol=lf
 .gitattributes text eol=lf
+.editorconfig text eol=lf
+.gitkeep  text eol=lf
 
 *.cmd     text eol=crlf
 *.bat     text eol=crlf
