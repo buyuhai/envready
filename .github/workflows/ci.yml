@@ -22,6 +22,37 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          # 提交信息校验需要本次推送之间的完整历史，浅克隆拿不到 before 提交
+          fetch-depth: 0
+
+      - name: 校验提交信息规范
+        # 规则见 CONTRIBUTING.md：<type>(<scope>): 说明
+        # 只在 push 时校验"本次推送引入的提交"，不追溯历史
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="${{ github.event.before }}"
+          if [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            echo "首次推送或无法取得 before，跳过"
+            exit 0
+          fi
+          pattern='^(feat|fix|docs|chore|ci|refactor|test|perf|build)(\([a-z0-9_, -]+\))?: .+'
+          bad=0
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            sha="${line%% *}"
+            msg="${line#* }"
+            if printf '%s' "$msg" | grep -Eq "$pattern"; then
+              echo "OK   $sha  $msg"
+            else
+              echo "::error::提交 $sha 不符合规范：$msg"
+              echo "       期望形如 feat(download): 支持断点续传"
+              bad=1
+            fi
+          done < <(git log --format='%h %s' "$before..${{ github.sha }}")
+          exit $bad
 
       - name: 安装 Go
         uses: actions/setup-go@v5
