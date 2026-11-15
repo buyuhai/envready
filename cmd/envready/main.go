@@ -47,7 +47,7 @@ func main() {
 func run(args []string) int {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, "EnvReady 启动器尚未实现"+
-			"（当前阶段：S1，图形界面在 S3 接入）。")
+			"（当前阶段：S3，图形界面尚未接入）。")
 		fmt.Fprintln(os.Stderr, "")
 		printUsage(os.Stderr)
 		return 1
@@ -353,7 +353,7 @@ func shortHash(sum string) string {
 // printUsage 输出用法说明。
 func printUsage(w *os.File) {
 	// 写 usage 失败无处可报（这里已经在错误处理路径上），显式忽略
-	_, _ = fmt.Fprintf(w, `%s 启动器（当前阶段：S1）
+	_, _ = fmt.Fprintf(w, `%s 命令行（S2 已完成；S3 图形界面开发中）
 
 用法：
   envready <命令> [参数]
@@ -383,6 +383,6 @@ install 专有：
   envready fetch mingw --manifest ./manifests/mingw.json --extract-to ./envs/mingw
   envready install mingw --manifest ./manifests/mingw.json
 
-正常使用时不需要直接运行启动器，双击程序图标即可。
+图形界面尚未接入（S3），当前请通过命令行使用。
 `, appName)
 }
