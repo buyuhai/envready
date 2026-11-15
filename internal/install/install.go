@@ -198,6 +198,28 @@ func TargetDir(envRoot, key, version string) string {
 	return filepath.Join(envRoot, key, version)
 }
 
+// SpacePathError 表示"该组件不能装在含空格的路径下"。
+//
+// 带上建议路径是有意的：只告诉用户"不行"等于把问题丢回去；
+// 新手看到 cannot install here 之后并不知道该改哪里。
+type SpacePathError struct {
+	// Path 是被拒绝的安装路径。
+	Path string
+	// Suggested 是建议改用无空格的路径。
+	Suggested string
+}
+
+// Error 实现 error 接口。
+func (e *SpacePathError) Error() string {
+	if e.Suggested == "" {
+		return fmt.Sprintf("%v：%s", ErrSpaceInPath, e.Path)
+	}
+	return fmt.Sprintf("%v：%s。建议改用：%s", ErrSpaceInPath, e.Path, e.Suggested)
+}
+
+// Unwrap 让调用方仍可用 errors.Is(err, ErrSpaceInPath) 判断类型。
+func (e *SpacePathError) Unwrap() error { return ErrSpaceInPath }
+
 // CheckPathSpace 检查安装路径是否满足"不能有空格"的要求。
 //
 // 为什么只在 Windows 上判断：这条限制来自 winlibs 的 binutils 在 Windows 上的
@@ -208,7 +230,19 @@ func CheckPathSpace(path string, required bool) error {
 		return nil
 	}
 	if strings.ContainsAny(path, " \t") {
-		return fmt.Errorf("%w：%s", ErrSpaceInPath, path)
+		return &SpacePathError{Path: path, Suggested: suggestSpaceFreePath()}
 	}
 	return nil
+}
+
+// suggestSpaceFreePath 给出一个无空格的建议目录。
+//
+// 优先用系统盘根下的固定位置：它不含用户名，因此不会因为
+// "Zhang San" 这类用户名而再次落入含空格的路径。
+func suggestSpaceFreePath() string {
+	drive := strings.TrimSpace(os.Getenv("SystemDrive"))
+	if drive == "" {
+		drive = "C:"
+	}
+	return filepath.Join(drive+string(filepath.Separator), "EnvReady", "envs")
 }

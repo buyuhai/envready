@@ -6,6 +6,40 @@
 
 ---
 
+## v0.3.0 — 2026-11-15（S2：安装与环境变量）
+
+### 新增
+
+- **`envready install <组件>`**：清单 → 下载 → 校验 → 解压 → 自检 → 写环境变量
+  - `--env-root` 指定环境根目录（默认在程序数据目录下）；`--no-env` 只装不写环境；`--force` 覆盖重装
+- **安装布局**：`<ENV_ROOT>/<组件>/<版本>/`，随目录写 `.envready-install.json`
+  （记录文件、sha256、是否校验、安装时间、镜像）
+- **原子落盘**：先解压到同级 `.staging-*`，成功后才改名；自检失败即删除并回滚
+- **冒烟验证**：清单可声明 `verify.smoke`——写一个最小程序、编译、运行。
+  版本号对不代表能干活（MinGW 在含空格路径下 `gcc --version` 正常但链接失败）
+- **环境变量**：
+  - Windows：直接读写 `HKCU\Environment`，读原始未展开值、写回保持 `REG_EXPAND_SZ`、
+    写前落盘备份、写后回读校验、广播 `WM_SETTINGCHANGE`；PATH 合并幂等
+  - Unix：shell 配置里的 `# >>> EnvReady:<组件> >>>` 幂等块，换版本整块替换、卸载整块移除；
+    fish 单独用 `set -gx`
+- **空格路径策略（数据驱动）**：清单声明 `requirements.space_free_path`，安装前拒绝；
+  CLI 会给出建议路径与可直接复制的重试命令
+
+### 实测
+
+- `install python`（python.org 官方 embeddable，10.6 MB）：1.7 秒完成，自检真跑 `python.exe` 解析出 3.12.4
+- `install mingw` 到含空格路径：0 秒拒绝、不发起下载，并提示改用 `C:\EnvReady\envs`
+
+### 已知限制
+
+- 只支持 `install_kind=archive`；installer / portable / npm 未实现
+- 尚无卸载命令（会在后续版本补）
+- MinGW 装在含空格路径下无法链接；开发沙箱只能写 `D:\work place`，因此
+  "MinGW 真装 + 编译冒烟"未在本机跑通，冒烟逻辑由注入 Runner 的单测覆盖
+- 平台支持：Windows 已有完整实现；macOS / Linux 仅有环境变量写入，安装流程可复用
+
+---
+
 ## v0.2.0 — 2026-11-01（S1：清单与下载内核）
 
 ### 新增

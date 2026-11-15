@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -27,6 +28,7 @@ import (
 	"github.com/buyuhai/envready/internal/app"
 	"github.com/buyuhai/envready/internal/buildinfo"
 	"github.com/buyuhai/envready/internal/download"
+	"github.com/buyuhai/envready/internal/install"
 	"github.com/buyuhai/envready/internal/paths"
 )
 
@@ -133,6 +135,15 @@ func runInstall(args []string) int {
 		fmt.Fprint(os.Stderr, "\r\033[K")
 	}
 	if err != nil {
+		// 空格路径：不只说"不行"，直接给出可执行的下一步
+		var spe *install.SpacePathError
+		if errors.As(err, &spe) {
+			fmt.Fprintln(os.Stderr, "这个组件不能在含空格的路径下工作（它的链接器不会给路径加引号）。")
+			fmt.Fprintf(os.Stderr, "  当前路径：%s\n", spe.Path)
+			fmt.Fprintf(os.Stderr, "  建议改用：%s\n", spe.Suggested)
+			fmt.Fprintf(os.Stderr, "  重试：envready install %s --manifest %q --env-root %q\n", key, *manifestSrc, spe.Suggested)
+			return 1
+		}
 		// 安装成功但环境变量没写成时，res.Dir 有值，要如实告诉用户"已经装好了"
 		if res.Dir != "" {
 			fmt.Printf("程序已安装到：%s\n", res.Dir)
