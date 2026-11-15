@@ -77,6 +77,25 @@ jobs:
       - name: 单元测试
         run: go test ./...
 
+      - name: 环境变量注册表集成测试（仅 Windows）
+        # 注册表写入只能在真实 Windows 上验证：开发机的受限沙箱会拒绝 RegCreateKeyEx，
+        # 那时的用例是 skip 的——而 skip 在日志里同样显示 ok，等于没验证。
+        # 这一步专门要求它必须真的执行：出现 SKIP 就判失败。
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$(go test ./internal/envvar/ -run 'TestApplyRevertOnTestKey|TestRemoveDirsFromTestKey' -v -count=1)"
+          echo "$out"
+          if echo "$out" | grep -q -- "--- SKIP"; then
+            echo "::error::注册表集成测试被跳过，说明当前环境不允许写 HKCU，验证不成立"
+            exit 1
+          fi
+          if ! echo "$out" | grep -q -- "--- PASS"; then
+            echo "::error::注册表集成测试没有执行"
+            exit 1
+          fi
+
       - name: 编译两个入口
         shell: bash
         run: |
