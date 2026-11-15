@@ -168,6 +168,19 @@ func Run(ctx context.Context, req Request) (Result, error) {
 		return Result{}, fmt.Errorf("安装后自检失败（已回滚）：%w", err)
 	}
 
+	// 版本号对了不代表能干活：再跑一次"真的用它做一件事"的冒烟验证
+	if req.Version.Verify != nil && req.Version.Verify.Smoke != nil {
+		bin, lerr := LocateCommand(target, req.Component.Env.Path.Dirs, req.Version.Verify.Command)
+		if lerr != nil {
+			_ = os.RemoveAll(target)
+			return Result{}, fmt.Errorf("冒烟验证前定位命令失败（已回滚）：%w", lerr)
+		}
+		if serr := RunSmoke(ctx, bin, req.Version.Verify.Smoke, req.Runner); serr != nil {
+			_ = os.RemoveAll(target)
+			return Result{}, fmt.Errorf("安装后冒烟验证失败（已回滚）：%w", serr)
+		}
+	}
+
 	return Result{
 		Key:           req.Component.Key,
 		Version:       req.Version.Version,

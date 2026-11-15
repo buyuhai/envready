@@ -111,6 +111,34 @@ type Verify struct {
 	ExpectExit int `json:"expect_exit"`
 	// Parse 是从输出里提取版本号的正则；为空表示只验退出码。
 	Parse string `json:"parse"`
+	// Smoke 是"真的用它做一件事"的可选验证（例如编译并运行一个最小程序）。
+	//
+	// 为什么需要它：S1 验收实测发现，MinGW 装在含空格路径下时
+	// gcc --version 完全正常，但链接阶段 ld.exe 会失败。
+	// 只看版本号证明不了"能干活"。
+	Smoke *Smoke `json:"smoke"`
+}
+
+// SmokeFile 是冒烟测试要写入临时目录的文件。
+type SmokeFile struct {
+	// Name 是文件名（不允许包含路径分隔符）。
+	Name string `json:"name"`
+	// Content 是文件内容。
+	Content string `json:"content"`
+}
+
+// Smoke 描述一次"用它干活"的验证：写几个文件 → 跑命令 → 可选再运行产物。
+//
+// 参数里可用 {dir} 占位符代表临时工作目录，避免在清单里写死路径。
+type Smoke struct {
+	// Files 是要写入临时目录的源文件。
+	Files []SmokeFile `json:"files"`
+	// Args 是主命令的参数（通常是编译），支持 {dir} 占位。
+	Args []string `json:"args"`
+	// Run 是运行产物路径（相对临时目录）；为空表示只验证命令执行成功。
+	Run string `json:"run"`
+	// RunArgs 是运行产物的参数。
+	RunArgs []string `json:"run_args"`
 }
 
 // Requirements 记录组件对运行环境的要求。

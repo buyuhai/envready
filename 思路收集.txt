@@ -424,3 +424,43 @@ EnvReady 项目 —— 讨论思路收集
 1) ENV_ROOT 含空格时：安装前就明确告知并提供无空格备选路径，而不是等用户自己发现；
 2) 组件自检不能只跑 gcc --version，必须真的编译并运行一个最小程序
    （前期 MinGW 脚本里的"实测自检"正是这个思路，现在有实证了）。
+
+
+================================================================
+议题六：S2 实测记录（安装与环境变量，2026-11-15）
+================================================================
+
+【完成的两块】
+
+1) 安装引擎：<ENV_ROOT>/<key>/<version>/ + 安装记录 + 原子落盘（.staging-* → rename）
+   + 自检失败即回滚。空格路径策略改成清单数据驱动的 requirements.space_free_path。
+
+2) 环境变量：
+   - Windows 直接调 advapi32 读写 HKCU\Environment（零依赖、不用 setx）
+   - 读原始未展开值、写回保持 REG_EXPAND_SZ，%USERPROFILE% 之类引用不被固化
+   - 写前落盘备份、写后回读比对、最后广播 WM_SETTINGCHANGE
+   - PATH 合并幂等；Unix 用 # >>> EnvReady:<组件> >>> 幂等块，fish 单独用 set -gx
+
+【真实端到端】
+
+- python 3.12.4（python.org 官方 embeddable，10.6 MB）：
+  envready install python → 1.7 秒完成下载/校验/解压/自检，
+  自检真的跑了 python.exe，解析出 3.12.4，安装记录正确落盘。
+- mingw（winlibs 263.6 MB，声明 space_free_path=true）：
+  装到 D:\work place\...（含空格）→ 0 秒拒绝，未发起下载，报
+  "安装路径包含空格，该组件无法在此路径下正常工作"。这正是 S1 实测得出的结论落地。
+
+【本机无法完成的部分，以及原因】
+
+想换到无空格路径再装一次 MinGW 时被拒：mkdir 到
+C:\Users\...\AppData\Local\Temp\envready-nospace 报 Access is denied。
+原因是开发沙箱只允许写 D:\work place —— 而它本身含空格。
+所以"MinGW 真装 + 编译冒烟"在开发机上无法验证，只能：
+  - 冒烟逻辑用注入的 Runner 做单元测试（已在 CI 三平台通过）；
+  - 清单里写入真实的 smoke 定义，等正式环境跑。
+
+【结论与后续】
+- 学生的 Windows 用户名若带空格（"Zhang San"），默认 ENV_ROOT 会落在含空格路径下；
+  现在的行为是"安装前明确拒绝"，但用户体验仍不完整——S3 之前要补：
+  检测到空格时给出一键改用无空格路径（例如 C:\EnvReady\envs）的引导。
+- 冒烟验证（真编译 + 真运行）已进清单格式；这是"装了但用不了"这类问题唯一的可靠探测手段。

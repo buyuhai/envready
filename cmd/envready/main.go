@@ -60,10 +60,116 @@ func run(args []string) int {
 		return 0
 	case "fetch":
 		return runFetch(args[1:])
+	case "install":
+		return runInstall(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "未识别的命令：%s\n\n", args[0])
 		printUsage(os.Stderr)
 		return 2
+	}
+}
+
+// runInstall 执行 `envready install <组件> [参数]`。
+func runInstall(args []string) int {
+	fs := flag.NewFlagSet("install", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+
+	manifestSrc := fs.String("manifest", "", "组件清单：本地路径或 https 地址（必填）")
+	version := fs.String("version", "", "指定版本号；缺省用清单中的推荐版本")
+	envRoot := fs.String("env-root", "", "环境根目录；缺省用程序数据目录下的 envs")
+	destDir := fs.String("dest", "", "安装包存放目录；缺省用程序数据目录下的 downloads")
+	backupDir := fs.String("backup", "", "环境变量备份目录；缺省用程序数据目录下的 env-backup")
+	noEnv := fs.Bool("no-env", false, "只安装，不写环境变量")
+	force := fs.Bool("force", false, "同版本已存在时覆盖重装")
+	quiet := fs.Bool("quiet", false, "不显示下载进度")
+
+	if err := fs.Parse(reorderArgs(args)); err != nil {
+		return 2
+	}
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "缺少组件名，例如：envready install mingw --manifest ./mingw.json")
+		return 2
+	}
+	if *manifestSrc == "" {
+		fmt.Fprintln(os.Stderr, "缺少 --manifest（组件清单的路径或 https 地址）")
+		return 2
+	}
+	key := fs.Arg(0)
+
+	layout, err := paths.New()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "无法确定数据目录："+err.Error())
+		return 1
+	}
+	root := *envRoot
+	if root == "" {
+		root = layout.EnvRoot
+	}
+	dl := *destDir
+	if dl == "" {
+		dl = layout.DownloadsDir()
+	}
+	bk := *backupDir
+	if bk == "" {
+		bk = layout.BackupDir()
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	printer := newProgressPrinter(!*quiet)
+	res, err := app.Install(ctx, app.InstallRequest{
+		Key:            key,
+		Version:        *version,
+		ManifestSource: *manifestSrc,
+		EnvRoot:        root,
+		Downloads:      dl,
+		BackupDir:      bk,
+		SkipEnv:        *noEnv,
+		Force:          *force,
+		Progress:       printer,
+	})
+	if printer != nil {
+		fmt.Fprint(os.Stderr, "\r\033[K")
+	}
+	if err != nil {
+		// 安装成功但环境变量没写成时，res.Dir 有值，要如实告诉用户"已经装好了"
+		if res.Dir != "" {
+			fmt.Printf("程序已安装到：%s\n", res.Dir)
+			fmt.Fprintln(os.Stderr, "但环境变量没有写成功："+err.Error())
+			return 1
+		}
+		fmt.Fprintln(os.Stderr, "安装失败："+err.Error())
+		return 1
+	}
+
+	printInstallResult(res)
+	return 0
+}
+
+// printInstallResult 用白话汇报安装结果与下一步。
+func printInstallResult(res app.InstallResult) {
+	fmt.Printf("已安装：%s %s\n", res.Component, res.Version)
+	fmt.Printf("位置：%s\n", res.Dir)
+	if res.Verified {
+		if res.VerifyVersion != "" {
+			fmt.Printf("自检：通过（版本 %s）\n", res.VerifyVersion)
+		} else {
+			fmt.Println("自检：通过")
+		}
+	} else {
+		fmt.Println("自检：上游未提供校验和，安装包未经完整性校验")
+	}
+	if res.EnvChanged {
+		fmt.Printf("环境变量：已更新（备份 %s）\n", res.BackupFile)
+	} else {
+		fmt.Println("环境变量：未修改")
+	}
+	if len(res.PostNotes) > 0 {
+		fmt.Println("接下来：")
+		for _, n := range res.PostNotes {
+			fmt.Println("  - " + n)
+		}
 	}
 }
 
@@ -138,6 +244,8 @@ func reorderArgs(args []string) []string {
 		"version":    true,
 		"dest":       true,
 		"extract-to": true,
+		"env-root":   true,
+		"backup":     true,
 	}
 
 	var flags, positional []string
@@ -232,19 +340,29 @@ func printUsage(w *os.File) {
   envready <命令> [参数]
 
 命令：
-  fetch <组件>    下载并校验组件安装包（S1）
+  fetch <组件>    只下载并校验安装包（S1）
+  install <组件>  下载 → 校验 → 解压 → 自检 → 写环境变量（S2）
   --version       显示版本信息
   --help          显示本说明
 
-fetch 的参数：
+公共参数：
   --manifest <路径|https地址>   组件清单位置（必填）
   --version <版本号>            指定版本，缺省用清单推荐版本
   --dest <目录>                 安装包存放目录
-  --extract-to <目录>           下载校验通过后解压到该目录
   --quiet                       不显示下载进度
+
+fetch 专有：
+  --extract-to <目录>           下载校验通过后解压到该目录
+
+install 专有：
+  --env-root <目录>             环境根目录（默认在程序数据目录下）
+  --backup <目录>               环境变量备份目录
+  --no-env                      只安装，不写环境变量
+  --force                       同版本已存在时覆盖重装
 
 示例：
   envready fetch mingw --manifest ./manifests/mingw.json --extract-to ./envs/mingw
+  envready install mingw --manifest ./manifests/mingw.json
 
 正常使用时不需要直接运行启动器，双击程序图标即可。
 `, appName)

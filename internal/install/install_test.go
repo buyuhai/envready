@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/buyuhai/envready/internal/component"
@@ -274,5 +275,56 @@ func TestRunRejectsSpacePath(t *testing.T) {
 	})
 	if !errors.Is(err, ErrSpaceInPath) {
 		t.Fatalf("期望 ErrSpaceInPath，得到 %v", err)
+	}
+}
+
+// TestRunSmoke 冒烟验证要写文件、展开 {dir} 占位符，并运行产物。
+func TestRunSmoke(t *testing.T) {
+	var calls []string
+	fake := func(_ context.Context, name string, args ...string) ([]byte, error) {
+		calls = append(calls, name+" "+strings.Join(args, " "))
+		return []byte("ok"), nil
+	}
+
+	s := &component.Smoke{
+		Files: []component.SmokeFile{{Name: "main.c", Content: "int main(void){return 0;}"}},
+		Args:  []string{"-O2", "-o", "{dir}/main.exe", "{dir}/main.c"},
+		Run:   "main.exe",
+	}
+	if err := RunSmoke(context.Background(), "C:/mingw/bin/gcc.exe", s, fake); err != nil {
+		t.Fatalf("冒烟验证失败: %v", err)
+	}
+	if len(calls) != 2 {
+		t.Fatalf("应调用两次（编译 + 运行），实际 %d 次：%v", len(calls), calls)
+	}
+	if strings.Contains(calls[0], "{dir}") {
+		t.Errorf("占位符未被展开: %q", calls[0])
+	}
+	if !strings.Contains(calls[1], "main.exe") {
+		t.Errorf("第二步应运行产物: %q", calls[1])
+	}
+}
+
+// TestRunSmokeFailure 冒烟失败必须把错误抛出来（调用方据此回滚）。
+func TestRunSmokeFailure(t *testing.T) {
+	fake := func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+		return []byte("ld.exe: cannot find D:/work"), errors.New("exit status 1")
+	}
+	s := &component.Smoke{
+		Files: []component.SmokeFile{{Name: "main.c", Content: "x"}},
+		Args:  []string{"-o", "{dir}/main.exe", "{dir}/main.c"},
+	}
+	if err := RunSmoke(context.Background(), "gcc", s, fake); err == nil {
+		t.Fatal("编译失败时应返回错误")
+	}
+}
+
+// TestRunSmokeRejectsBadFileName 清单里的文件名不能带路径分隔符。
+func TestRunSmokeRejectsBadFileName(t *testing.T) {
+	s := &component.Smoke{Files: []component.SmokeFile{{Name: "../evil.c", Content: "x"}}}
+	if err := RunSmoke(context.Background(), "gcc", s, func(context.Context, string, ...string) ([]byte, error) {
+		return nil, nil
+	}); err == nil {
+		t.Fatal("非法文件名应被拒绝")
 	}
 }

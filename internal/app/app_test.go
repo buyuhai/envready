@@ -74,7 +74,7 @@ func demoComponent(mirror, file string, size int64, sum string) component.Compon
 						Archive:     component.ArchiveSpec{Format: component.FormatZip, StripRoot: true},
 					},
 				},
-				Verify: &component.Verify{Command: "demo"},
+				Verify: &component.Verify{Command: "demo.txt", Parse: `(\d+\.\d+\.\d+)`},
 			},
 		},
 	}
@@ -172,7 +172,7 @@ func TestFetchPlatformMissing(t *testing.T) {
 						Archive:     component.ArchiveSpec{Format: component.FormatZip},
 					},
 				},
-				Verify: &component.Verify{Command: "demo"},
+				Verify: &component.Verify{Command: "demo.txt", Parse: `(\d+\.\d+\.\d+)`},
 			},
 		},
 	}
@@ -201,4 +201,50 @@ func itoa(n int) string {
 		n /= 10
 	}
 	return string(buf[i:])
+}
+
+// TestInstallEndToEnd 覆盖"清单 → 安装 → 自检"整条链路（跳过环境变量写入，
+// 那部分由 envvar 包在真实注册表键上单独验证）。
+func TestInstallEndToEnd(t *testing.T) {
+	zipBytes := buildZip(t)
+	sum := sha256.Sum256(zipBytes)
+	hexSum := hex.EncodeToString(sum[:])
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(zipBytes)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	c := demoComponent(srv.URL, "demo.zip", int64(len(zipBytes)), hexSum)
+	manifestPath := writeManifest(t, dir, c)
+
+	envRoot := filepath.Join(t.TempDir(), "envs")
+	res, err := Install(context.Background(), InstallRequest{
+		Key:            "demo",
+		ManifestSource: manifestPath,
+		EnvRoot:        envRoot,
+		Downloads:      filepath.Join(t.TempDir(), "dl"),
+		BackupDir:      t.TempDir(),
+		SkipEnv:        true,
+		Client:         srv.Client(),
+		Runner: func(context.Context, string, ...string) ([]byte, error) {
+			return []byte("tool 1.0.0"), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("安装失败: %v", err)
+	}
+	if res.Dir == "" {
+		t.Error("应返回安装目录")
+	}
+	if res.VerifyVersion != "1.0.0" {
+		t.Errorf("自检版本 = %q", res.VerifyVersion)
+	}
+	if res.EnvChanged {
+		t.Error("SkipEnv 时不应修改环境变量")
+	}
+	if _, serr := os.Stat(res.Dir); serr != nil {
+		t.Errorf("安装目录不存在: %v", serr)
+	}
 }

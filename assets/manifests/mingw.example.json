@@ -50,7 +50,22 @@
           "--version"
         ],
         "expect_exit": 0,
-        "parse": "\\(GCC\\) (\\d+\\.\\d+\\.\\d+)"
+        "parse": "\\(GCC\\) (\\d+\\.\\d+\\.\\d+)",
+        "smoke": {
+          "files": [
+            {
+              "name": "main.c",
+              "content": "#include <stdio.h>\nint main(void) { printf(\"envready-smoke\\n\"); return 0; }\n"
+            }
+          ],
+          "args": [
+            "-O2",
+            "-o",
+            "{dir}/main.exe",
+            "{dir}/main.c"
+          ],
+          "run": "main.exe"
+        }
       }
     }
   ],

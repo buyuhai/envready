@@ -59,6 +59,11 @@ func RunVerify(ctx context.Context, dir string, dirs []string, v *component.Veri
 	return text, m[1], nil
 }
 
+// LocateCommand 在安装目录的候选子目录里找可执行文件（导出给安装流程与测试用）。
+func LocateCommand(dir string, dirs []string, command string) (string, error) {
+	return findCommand(dir, dirs, command)
+}
+
 // findCommand 在安装目录的候选子目录里找可执行文件。
 //
 // 为什么不用 PATH：安装阶段还没有写环境变量，靠 PATH 找不到；
@@ -94,6 +99,60 @@ func execRunner(ctx context.Context, name string, args ...string) ([]byte, error
 	// 在命令自身目录下运行，避免依赖调用方的当前目录
 	cmd.Dir = filepath.Dir(name)
 	return cmd.CombinedOutput()
+}
+
+// RunSmoke 执行"真的用它干一件事"的冒烟验证。
+//
+// 失败：写文件失败、编译/执行失败、清单里的文件名非法。
+// 副作用：在系统临时目录创建并清理一个工作目录。
+func RunSmoke(ctx context.Context, bin string, s *component.Smoke, runner Runner) error {
+	if s == nil {
+		return nil
+	}
+	if runner == nil {
+		runner = execRunner
+	}
+	dir, err := os.MkdirTemp("", "envready-smoke-")
+	if err != nil {
+		return fmt.Errorf("创建冒烟测试目录失败: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	for _, f := range s.Files {
+		name := strings.TrimSpace(f.Name)
+		if name == "" || strings.ContainsAny(name, `/\`) {
+			return fmt.Errorf("冒烟测试文件名非法: %q", f.Name)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(f.Content), 0o644); err != nil {
+			return fmt.Errorf("写入冒烟测试文件 %s 失败: %w", name, err)
+		}
+	}
+
+	args := expandDir(s.Args, dir)
+	out, err := runner(ctx, bin, args...)
+	if err != nil {
+		return fmt.Errorf("冒烟测试命令失败: %w（输出：%s）", err, truncate(string(out), 300))
+	}
+
+	if strings.TrimSpace(s.Run) != "" {
+		if strings.ContainsAny(s.Run, `/\`) {
+			return fmt.Errorf("冒烟测试产物路径非法: %q", s.Run)
+		}
+		runOut, rerr := runner(ctx, filepath.Join(dir, s.Run), expandDir(s.RunArgs, dir)...)
+		if rerr != nil {
+			return fmt.Errorf("冒烟测试产物运行失败: %w（输出：%s）", rerr, truncate(string(runOut), 300))
+		}
+	}
+	return nil
+}
+
+// expandDir 把参数里的 {dir} 占位符替换成临时目录。
+func expandDir(args []string, dir string) []string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		out[i] = strings.ReplaceAll(a, "{dir}", dir)
+	}
+	return out
 }
 
 // truncate 截断过长输出，避免把整屏内容塞进错误信息。
